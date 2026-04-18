@@ -1,0 +1,20 @@
+{
+  "name": "@ad-blocker/extension",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Chrome MV3 ad blocker extension (apps/extension).",
+  "type": "module",
+  "scripts": {
+    "build": "echo \"TODO: wire Vite/rollup build\" && exit 0",
+    "dev": "echo \"TODO: wire Vite dev build\" && exit 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "echo \"TODO: wire eslint\" && exit 0",
+    "test": "echo \"TODO: wire vitest\" && exit 0"
+  },
+  "dependencies": {
+    "@ad-blocker/filter-compiler-js": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270"
+  }
+}

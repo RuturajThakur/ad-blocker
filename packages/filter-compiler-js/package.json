@@ -1,0 +1,24 @@
+{
+  "name": "@ad-blocker/filter-compiler-js",
+  "version": "0.0.1",
+  "private": true,
+  "description": "TypeScript facade over the Rust/Wasm filter compiler. Exposes a Node build-time API and a browser/runtime API over the same Wasm core.",
+  "type": "module",
+  "exports": {
+    "./node": {
+      "types": "./node.ts",
+      "default": "./node.ts"
+    },
+    "./web": {
+      "types": "./web.ts",
+      "default": "./web.ts"
+    }
+  },
+  "scripts": {
+    "build": "echo \"TODO: tsc + copy wasm artifacts\" && exit 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo \"TODO: wire vitest\" && exit 0",
+    "lint": "echo \"TODO: wire eslint\" && exit 0"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,2 @@
+# cargo-fuzz targets land here. CI runs a 30s smoke fuzz on PRs; nightly runs
+# longer campaigns. `cargo fuzz init` will populate Cargo.toml + fuzz_targets/.

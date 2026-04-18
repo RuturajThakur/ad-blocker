@@ -1,0 +1,11 @@
+{
+  "name": "@ad-blocker/ui-kit",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared UI primitives for popup + options pages.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "echo \"no TS files yet\" && exit 0",
+    "lint": "echo \"TODO: wire eslint\" && exit 0"
+  }
+}

@@ -1,0 +1,2 @@
+# Compiled DNR rulesets land here at build time.
+# .gitignore excludes *.json in this directory so we don't commit build output.

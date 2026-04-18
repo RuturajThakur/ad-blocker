@@ -1,0 +1,63 @@
+[package]
+name = "filter-compiler-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+authors = ["Ad Blocker Team"]
+description = "Rust → Wasm compiler that turns ABP filter lists into declarativeNetRequest JSON and cosmetic-selector bundles."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+# cdylib: required for wasm-bindgen / wasm-pack output.
+# rlib:   keeps the crate usable as a normal Rust library for tests and benchmarks.
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Enable verbose instrumentation (timing, rule-drop reasons) in dev builds.
+dev-telemetry = []
+
+[dependencies]
+# JS/Wasm interop.
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+
+# Domain-side utilities.
+idna = "1"              # IDN → punycode normalisation.
+smallvec = { version = "1", features = ["union"] }
+ahash = { version = "0.8", default-features = false, features = ["std"] }
+
+# Error reporting.
+thiserror = "1"
+
+[dependencies.console_error_panic_hook]
+version = "0.1"
+optional = true
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
+insta = "1"             # Snapshot tests for emitter golden files.
+
+[profile.release]
+# Binary-size first. Benchmarks in Phase 1 decide whether we flip to opt-level = 3.
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = false
+
+[profile.release-debug]
+# For profiling: same as release but keeps debuginfo. Never ship this.
+inherits = "release"
+debug = 1
+strip = "none"
+
+[[bench]]
+name = "lexer_bench"
+harness = false

@@ -1,0 +1,5 @@
+/target
+/pkg
+Cargo.lock.bak
+*.wasm
+!benches/*.wasm

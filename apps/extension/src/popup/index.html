@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ad Blocker</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 13px/1.4 system-ui, sans-serif; margin: 12px; min-width: 260px; }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      .row { display: flex; justify-content: space-between; padding: 4px 0; }
+      .muted { opacity: 0.7; }
+    </style>
+  </head>
+  <body>
+    <h1>Ad Blocker</h1>
+    <div class="row"><span>Status</span><span id="status" class="muted">—</span></div>
+    <div class="row"><span>Blocked on this page</span><span id="count" class="muted">0</span></div>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

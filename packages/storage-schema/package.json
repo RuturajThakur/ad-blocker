@@ -1,0 +1,18 @@
+{
+  "name": "@ad-blocker/storage-schema",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Typed schema + migrations for chrome.storage.* state.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo \"TODO: wire vitest\" && exit 0",
+    "lint": "echo \"TODO: wire eslint\" && exit 0"
+  }
+}

@@ -1,0 +1,7 @@
+[toolchain]
+# Repo-wide Rust pin. Matches packages/filter-compiler-rs/rust-toolchain.toml.
+# Bump deliberately — never let CI drift silently.
+channel = "1.86.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"
