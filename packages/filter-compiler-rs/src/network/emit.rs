@@ -350,21 +350,22 @@ mod tests {
         let r = unwrap_rule(out);
         assert_eq!(r.action, DnrAction::Block);
         assert_eq!(r.priority, 1);
-        assert_eq!(r.condition.resource_types, vec![ResourceTypeWire::MainFrame]);
+        assert_eq!(
+            r.condition.resource_types,
+            vec![ResourceTypeWire::MainFrame]
+        );
     }
 
     #[test]
     fn popup_with_third_party_preserves_domain_type() {
         // The second-most common popup shape in EasyList combines
         // `$popup,third-party`. Both fields should land in the condition.
-        let out = emit_network(
-            &net("||tracker.example^", "popup,third-party"),
-            false,
-            1,
-            1,
-        );
+        let out = emit_network(&net("||tracker.example^", "popup,third-party"), false, 1, 1);
         let r = unwrap_rule(out);
-        assert_eq!(r.condition.resource_types, vec![ResourceTypeWire::MainFrame]);
+        assert_eq!(
+            r.condition.resource_types,
+            vec![ResourceTypeWire::MainFrame]
+        );
         assert_eq!(r.condition.domain_type, Some(DomainType::ThirdParty));
     }
 
@@ -387,7 +388,10 @@ mod tests {
         // The popup branch must not append a duplicate.
         let out = emit_network(&net("||x.com^", "popup,document"), false, 1, 1);
         let r = unwrap_rule(out);
-        assert_eq!(r.condition.resource_types, vec![ResourceTypeWire::MainFrame]);
+        assert_eq!(
+            r.condition.resource_types,
+            vec![ResourceTypeWire::MainFrame]
+        );
     }
 
     #[test]

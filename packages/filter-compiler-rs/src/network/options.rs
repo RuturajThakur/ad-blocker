@@ -459,7 +459,10 @@ mod tests {
     fn popup_rejects_value() {
         let p = parse_options("popup=x");
         assert_eq!(p.errors.len(), 1);
-        assert!(matches!(p.errors[0], ConversionError::MalformedOption { .. }));
+        assert!(matches!(
+            p.errors[0],
+            ConversionError::MalformedOption { .. }
+        ));
     }
 
     #[test]
