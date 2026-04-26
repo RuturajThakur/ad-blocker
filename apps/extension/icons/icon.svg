@@ -1,0 +1,13 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded square in the same red used by the active badge (#D93025).
+       Picking a square (not a chevron-bottom shield) because square reads
+       cleaner at 16x16 and matches Chrome's other toolbar icons (Reader Mode,
+       1Password, etc.) which are mostly square-with-rounding. -->
+  <rect x="8" y="8" width="112" height="112" rx="22" ry="22" fill="#D93025"/>
+
+  <!-- "No" symbol over the red. Stroke widths chosen so a 16x16 downsample
+       still has at least a 1-pixel stroke after LANCZOS — under 7% relative
+       width disappears at small sizes. -->
+  <circle cx="64" cy="64" r="34" fill="none" stroke="#FFFFFF" stroke-width="9"/>
+  <line x1="42" y1="86" x2="86" y2="42" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+</svg>
