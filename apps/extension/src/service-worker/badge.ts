@@ -17,13 +17,40 @@ import { etldPlusOne } from '../shared/etld.js';
 import { PAUSED_HOSTS_KEY } from '../shared/messages.js';
 
 /**
- * Brand colors for the badge. Picked for legibility on both light and dark
- * Chrome themes — Chrome doesn't theme the badge itself, so we set a fixed
- * pair and trust contrast. Blue rather than red because the badge is an
- * informational signal ("activity"), not an alert ("danger").
+ * Badge background colors. Two states, two colors:
+ *
+ *   - Active (red, #D93025): the extension is blocking on this tab. Red
+ *     was chosen for visibility — when an ad blocker is doing its job the
+ *     user wants the badge to read at a glance, and red against the
+ *     toolbar's neutral background pops harder than a calmer blue.
+ *     #D93025 is Chrome's own action red (used for things like the
+ *     close button), so it reads as "native" rather than alarming.
+ *
+ *   - Paused (blue, #3578E5): the extension is intentionally not acting
+ *     on this site (the user has paused via the popup). Blue here is the
+ *     "muted / informational" signal — same hue we used previously for
+ *     the active badge, kept for the paused state because users who saw
+ *     the old build will recognize the color even if the meaning shifted.
+ *
+ * Color in CSS form is what `chrome.action.setBadgeBackgroundColor`
+ * accepts (also accepts `[r,g,b,a]`); the hex form is more readable in
+ * code review.
  */
-const BADGE_BG_COLOR = '#3578E5';
+const BADGE_BG_ACTIVE = '#D93025';
+const BADGE_BG_PAUSED = '#3578E5';
 const BADGE_TEXT_COLOR = '#FFFFFF';
+
+/**
+ * Text shown on the badge when this tab's host is paused. Three chars
+ * fits comfortably under the badge's ~4-char readability limit, and "OFF"
+ * is unambiguous in any locale we'd ship to without a real i18n pass.
+ *
+ * Why we now show text on the paused state at all: previously the badge
+ * cleared entirely on paused tabs, which meant the chosen color was
+ * never visible (badge bg only paints under text). Showing "OFF" makes
+ * the paused color carry actual signal.
+ */
+const PAUSED_BADGE_TEXT = 'OFF';
 
 /**
  * Format a blocked-request count for the badge.
@@ -47,11 +74,15 @@ export function formatBadgeCount(n: number): string {
  * extension reloads, so re-applying on every wake-up keeps the look stable
  * after dev reloads.
  *
+ * The default color set here is the active red — most tabs are active most
+ * of the time, so making active the default is one fewer per-tab call on
+ * the hot path. Paused tabs override the bg color in `updateBadgeForTab`.
+ *
  * `setBadgeTextColor` is Chrome 110+. The manifest requires Chrome 120, so
  * we call it unconditionally — no feature detection needed.
  */
 export async function initBadgeStyling(): Promise<void> {
-  await chrome.action.setBadgeBackgroundColor({ color: BADGE_BG_COLOR });
+  await chrome.action.setBadgeBackgroundColor({ color: BADGE_BG_ACTIVE });
   await chrome.action.setBadgeTextColor({ color: BADGE_TEXT_COLOR });
 }
 
@@ -79,13 +110,22 @@ async function isTabPaused(tab: chrome.tabs.Tab): Promise<boolean> {
  * Refresh the badge for a single tab. Idempotent — safe to call on every
  * tab event without a debounce. Two outcomes:
  *
- *   - Tab is on a paused host → badge cleared. We deliberately don't show
- *     "0" or "off" text: an empty badge is the cleanest signal that the
- *     extension is intentionally not acting here, and the popup's status
- *     row carries the full explanation when the user wants it.
- *   - Otherwise → badge text is the formatted match count. Even when the
- *     count is zero we still call setBadgeText so a stale "5" from a
- *     previous URL on the same tab gets cleared when the count drops.
+ *   - Tab is on a paused host → badge bg flips to the paused blue and the
+ *     badge shows "OFF". The user gets an unambiguous signal that the
+ *     extension is intentionally not acting here. Previously this branch
+ *     just cleared the badge text entirely; that left the user unable to
+ *     tell "paused" from "active but quiet" at a glance.
+ *   - Otherwise → badge bg is the active red, and the text is the
+ *     formatted match count. Even when the count is zero we still call
+ *     setBadgeText so a stale "5" from a previous URL on the same tab
+ *     gets cleared when the count drops.
+ *
+ * Why we set the bg color per-tab in both branches: chrome.action's
+ * per-tab overrides "stick" until cleared explicitly. If we only set the
+ * paused color and never re-set the active color, a tab that was once
+ * paused would keep showing the blue bg even after the user un-paused
+ * (until SW restart re-runs initBadgeStyling). Setting the right color
+ * every call keeps state consistent.
  *
  * Failures are swallowed because Chrome's `getMatchedRules` throws on
  * non-http(s) tabs (chrome://, view-source://, etc.) — those tabs can't
@@ -96,9 +136,17 @@ export async function updateBadgeForTab(tabId: number): Promise<void> {
   try {
     const tab = await chrome.tabs.get(tabId);
     if (await isTabPaused(tab)) {
-      await chrome.action.setBadgeText({ text: '', tabId });
+      await chrome.action.setBadgeBackgroundColor({
+        color: BADGE_BG_PAUSED,
+        tabId,
+      });
+      await chrome.action.setBadgeText({ text: PAUSED_BADGE_TEXT, tabId });
       return;
     }
+    await chrome.action.setBadgeBackgroundColor({
+      color: BADGE_BG_ACTIVE,
+      tabId,
+    });
     const { rulesMatchedInfo } =
       await chrome.declarativeNetRequest.getMatchedRules({ tabId });
     await chrome.action.setBadgeText({
