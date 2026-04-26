@@ -61,3 +61,10 @@ strip = "none"
 [[bench]]
 name = "lexer_bench"
 harness = false
+
+# End-to-end pipeline bench. Lives alongside lexer_bench but exercises
+# `compile_to_report` against real-list-sized inputs — the cost callers
+# (build:rulesets, the SW's auto-refresh path) actually pay.
+[[bench]]
+name = "compile_bench"
+harness = false
