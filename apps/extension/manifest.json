@@ -14,13 +14,13 @@
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "src/service-worker/index.js",
+    "service_worker": "src/service-worker/index.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/index.js"],
+      "js": ["src/content/index.ts"],
       "run_at": "document_start",
       "all_frames": true,
       "match_about_blank": true
@@ -37,14 +37,64 @@
   "declarative_net_request": {
     "rule_resources": [
       {
-        "id": "easylist",
+        "id": "easylist-1",
         "enabled": true,
-        "path": "rulesets/easylist.json"
+        "path": "rulesets/easylist-1.json"
       },
       {
-        "id": "easyprivacy",
+        "id": "easylist-2",
         "enabled": true,
-        "path": "rulesets/easyprivacy.json"
+        "path": "rulesets/easylist-2.json"
+      },
+      {
+        "id": "easylist-3",
+        "enabled": true,
+        "path": "rulesets/easylist-3.json"
+      },
+      {
+        "id": "easyprivacy-1",
+        "enabled": true,
+        "path": "rulesets/easyprivacy-1.json"
+      },
+      {
+        "id": "easyprivacy-2",
+        "enabled": true,
+        "path": "rulesets/easyprivacy-2.json"
+      },
+      {
+        "id": "easyprivacy-3",
+        "enabled": true,
+        "path": "rulesets/easyprivacy-3.json"
+      },
+      {
+        "id": "easylist-cookie-1",
+        "enabled": false,
+        "path": "rulesets/easylist-cookie-1.json"
+      },
+      {
+        "id": "easylist-cookie-2",
+        "enabled": false,
+        "path": "rulesets/easylist-cookie-2.json"
+      },
+      {
+        "id": "easylist-cookie-3",
+        "enabled": false,
+        "path": "rulesets/easylist-cookie-3.json"
+      },
+      {
+        "id": "easylist-annoyances-1",
+        "enabled": false,
+        "path": "rulesets/easylist-annoyances-1.json"
+      },
+      {
+        "id": "easylist-annoyances-2",
+        "enabled": false,
+        "path": "rulesets/easylist-annoyances-2.json"
+      },
+      {
+        "id": "easylist-annoyances-3",
+        "enabled": false,
+        "path": "rulesets/easylist-annoyances-3.json"
       }
     ]
   },

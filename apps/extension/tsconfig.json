@@ -1,9 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["chrome"],
+    // "chrome" for SW/content/popup code; "node" for scripts/build-rulesets.
+    // Both sets are type-only — nothing here leaks into the shipped bundles.
+    "types": ["chrome", "node"],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "vite.config.ts"]
 }

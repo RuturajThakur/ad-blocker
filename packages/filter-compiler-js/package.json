@@ -15,10 +15,17 @@
     }
   },
   "scripts": {
-    "build": "echo \"TODO: tsc + copy wasm artifacts\" && exit 0",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "echo \"TODO: wire vitest\" && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "echo \"TODO: wire eslint\" && exit 0"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "filter-compiler-rs": "file:../filter-compiler-rs/pkg"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "vitest": "^2.1.0"
+  }
 }

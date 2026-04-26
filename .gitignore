@@ -19,6 +19,17 @@ Cargo.lock.bak
 apps/extension/dist/
 apps/extension/rulesets/*.json
 !apps/extension/rulesets/.gitkeep
+apps/extension/assets/
+apps/extension/build-summary.json
+
+# Upstream filter lists fetched by scripts/fetch-lists.ts. Only the
+# manifest.json next to them is committed — the .txt bodies are too large
+# and change upstream too often to track in-tree.
+apps/extension/vendor/*.txt
+
+# Bench reports are generated from the vendored lists on demand — commit
+# the generator, not the output.
+apps/extension/bench/
 
 # ---------------------------------------------------------------------------
 # Editors / IDE

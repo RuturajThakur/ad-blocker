@@ -5,5 +5,5 @@
     "rootDir": ".",
     "declaration": true
   },
-  "include": ["node.ts", "web.ts", "src/**/*.ts"]
+  "include": ["node.ts", "web.ts", "src/**/*.ts", "*.test.ts"]
 }

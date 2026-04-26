@@ -10,14 +10,17 @@
       h1 { font-size: 20px; }
       section { margin-top: 24px; }
       label { display: block; margin: 6px 0; }
+      .muted { opacity: 0.65; font-size: 12px; }
     </style>
   </head>
   <body>
     <h1>Ad Blocker — Options</h1>
     <section>
       <h2>Filter lists</h2>
-      <label><input type="checkbox" id="easylist" checked /> EasyList</label>
-      <label><input type="checkbox" id="easyprivacy" checked /> EasyPrivacy</label>
+      <label><input type="checkbox" id="easylist" checked /> EasyList <span class="muted">— ad blocking (default on)</span></label>
+      <label><input type="checkbox" id="easyprivacy" checked /> EasyPrivacy <span class="muted">— tracker blocking (default on)</span></label>
+      <label><input type="checkbox" id="easylist-cookie" /> EasyList Cookie <span class="muted">— cookie banners (off by default; can break some sign-in flows)</span></label>
+      <label><input type="checkbox" id="easylist-annoyances" /> EasyList Annoyances <span class="muted">— overlays, newsletter pop-ups, anti-adblock walls (off by default)</span></label>
     </section>
     <script type="module" src="./index.ts"></script>
   </body>

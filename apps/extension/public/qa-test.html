@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ad Blocker — QA test page</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; }
+      h1 { font-size: 18px; }
+      .marker { padding: 8px 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 4px; background: #ffe0e0; }
+      .marker::before { content: "visible: "; font-weight: bold; color: #900; }
+      .pass-marker { background: #e0ffe0; border-color: #9c9; }
+      .pass-marker::before { content: "visible (expected): "; font-weight: bold; color: #050; }
+      footer { margin-top: 32px; font-size: 12px; color: #666; }
+      kbd { font: 12px/1 ui-monospace, monospace; padding: 2px 4px; background: #eee; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>Ad Blocker — QA test page</h1>
+    <p>
+      Each red box below should be hidden by the extension. Each green box
+      should stay visible. Open the devtools inspector on any red box that
+      didn't disappear to see why.
+    </p>
+    <p>
+      Serve this page over HTTP (e.g. <kbd>python -m http.server</kbd> from
+      <kbd>apps/extension/dist</kbd>) and visit it at
+      <kbd>http://localhost:8080/qa-test.html</kbd>. Don't open it at the
+      <kbd>chrome-extension://</kbd> URL — content scripts deliberately
+      don't inject into extension-owned pages, and the extension-page CSP
+      blocks our diagnostic script.
+    </p>
+    <p>
+      To exercise <em>domain-scoped</em> rules, map a hostname like
+      <kbd>example.com</kbd> to <kbd>127.0.0.1</kbd> in your hosts file and
+      visit via that hostname instead.
+    </p>
+
+    <h2>Generic rules (hide on every hostname)</h2>
+    <div class="marker ad-banner">class=ad-banner — should be hidden</div>
+    <div class="marker" id="adslot-123">id=adslot-123 — should be hidden</div>
+
+    <h2>Domain-scoped: example.com or sub.example.com</h2>
+    <p>Should hide on example.com (except exception) / sub.example.com:</p>
+    <div class="marker sponsor-box">class=sponsor-box — domain rule + exception on example.com</div>
+
+    <h2>Domain-scoped: news.site</h2>
+    <aside class="marker promo">aside.promo — hidden on news.site only</aside>
+
+    <h2>Controls (should always stay visible)</h2>
+    <div class="marker pass-marker">plain control element — no rule targets this</div>
+    <div class="marker pass-marker unrelated-ad">class=unrelated-ad — not a rule target</div>
+
+    <footer>
+      <p>Hostname: <code id="host"></code></p>
+      <p>
+        Injected style (check devtools <kbd>&lt;head&gt;</kbd> for a
+        <kbd>&lt;style data-ad-blocker="cosmetic"&gt;</kbd> element):
+        <code id="style-count">(checking...)</code>
+      </p>
+      <script src="qa-test.js"></script>
+    </footer>
+  </body>
+</html>

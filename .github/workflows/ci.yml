@@ -85,26 +85,31 @@ jobs:
           tar xf binaryen.tar.gz
           echo "$PWD/binaryen-${VER}/bin" >> "$GITHUB_PATH"
 
-      - name: Build Wasm (web target)
-        run: wasm-pack build --release --target web --out-dir pkg/web
+      # Single `--target web` build to `pkg/` — the same layout local dev
+      # produces. This is the layout `filter-compiler-js` consumes via its
+      # `file:../filter-compiler-rs/pkg` dependency. Per the comment in
+      # `packages/filter-compiler-js/node.ts`, the web target works in both
+      # browsers and Node (Node loads the `.wasm` bytes manually via
+      # `createRequire`), so we don't need a separate nodejs build.
+      - name: Build Wasm
+        run: wasm-pack build --release --target web --out-dir pkg
 
-      - name: Build Wasm (nodejs target)
-        run: wasm-pack build --release --target nodejs --out-dir pkg/node
-
+      # Optimise in-place so the `.wasm` consumed downstream is the same
+      # bytes the size budget measures. Earlier this job kept an `*.opt.wasm`
+      # alongside the original — that drifted the budget away from reality.
       - name: Optimise Wasm
         run: |
           wasm-opt -O3 --strip-debug \
-            pkg/web/filter_compiler_rs_bg.wasm \
-            -o pkg/web/filter_compiler_rs_bg.opt.wasm
-          wasm-opt -O3 --strip-debug \
-            pkg/node/filter_compiler_rs_bg.wasm \
-            -o pkg/node/filter_compiler_rs_bg.opt.wasm
+            pkg/filter_compiler_rs_bg.wasm \
+            -o pkg/filter_compiler_rs_bg.opt.wasm
+          mv pkg/filter_compiler_rs_bg.opt.wasm pkg/filter_compiler_rs_bg.wasm
 
       - name: Measure and enforce size budget
         run: |
-          RAW=$(stat -c%s pkg/web/filter_compiler_rs_bg.opt.wasm)
-          GZ=$(gzip -9 -c pkg/web/filter_compiler_rs_bg.opt.wasm | wc -c)
-          BR=$(command -v brotli >/dev/null && brotli -q 11 -c pkg/web/filter_compiler_rs_bg.opt.wasm | wc -c || echo "n/a")
+          WASM=pkg/filter_compiler_rs_bg.wasm
+          RAW=$(stat -c%s "$WASM")
+          GZ=$(gzip -9 -c "$WASM" | wc -c)
+          BR=$(command -v brotli >/dev/null && brotli -q 11 -c "$WASM" | wc -c || echo "n/a")
           echo "::notice title=Wasm size::raw=${RAW}B gzip=${GZ}B brotli=${BR}B budget=${WASM_SIZE_BUDGET_BYTES}B"
           echo "wasm_raw=$RAW"    >> "$GITHUB_OUTPUT"
           echo "wasm_gzip=$GZ"    >> "$GITHUB_OUTPUT"
@@ -152,11 +157,29 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # Monorepo-wide JS/TS checks (Phase 0: placeholder; real work in Phase 1).
+  # JS/TS workspaces — typecheck, tests, full extension build.
+  #
+  # `needs: wasm` because @ad-blocker/filter-compiler-js declares the wasm
+  # bundle as a `file:../filter-compiler-rs/pkg` dependency. Rather than
+  # re-running wasm-pack here (slow), we download the artifact the wasm job
+  # already uploaded and let pnpm resolve the file: link locally.
+  #
+  # The vendor/ filter lists are gitignored (only the ETag manifest is
+  # committed). We cache them with a weekly key rotation:
+  #   - Cache hit (most PRs): vendor/ restored in <1s. `lists:fetch` then
+  #     re-validates ETags upstream — a 304 round-trip per file, no body
+  #     transfer.
+  #   - Cache miss (first run of a new ISO week, or fetch-lists.ts changed):
+  #     full download (~5s, ~6 MB).
+  # The point of the cache is not bandwidth (ETag handles that) but flake
+  # immunity against transient upstream errors at easylist.to / fanboy.co.nz.
+  # The weekly key rotation ensures we still pick up upstream URL changes
+  # that ETags can't detect within a bounded window.
   # ---------------------------------------------------------------------------
   node:
-    name: Node (monorepo lint + typecheck)
+    name: Node (typecheck, tests, build)
     runs-on: ubuntu-latest
+    needs: wasm
 
     steps:
       - uses: actions/checkout@v4
@@ -170,26 +193,55 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Install
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            echo "No pnpm-lock.yaml yet — skipping install (expected until Phase 0 repo bootstrap is complete)."
-          fi
+      # Download the wasm-pack output the wasm job uploaded so the
+      # `file:../filter-compiler-rs/pkg` dependency resolves at install time.
+      - name: Download wasm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-${{ github.sha }}
+          path: packages/filter-compiler-rs/pkg
 
-      - name: Lint
-        run: |
-          if [ -f package.json ] && pnpm run --silent lint --if-present; then
-            echo "lint ok"
-          else
-            echo "no lint script yet — skipping"
-          fi
+      # ISO week-numbering year + ISO week number, e.g. "2026-W17". A fresh
+      # tag every Monday rotates the cache. Computed in UTC so DST and
+      # runner-local TZ never produce a key drift.
+      - name: Compute weekly cache tag
+        id: cache_key
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
 
+      - name: Restore vendor/ filter-list cache
+        uses: actions/cache@v4
+        with:
+          path: apps/extension/vendor
+          # `v1-` prefix is a manual invalidation knob: bump to `v2-` if the
+          # vendor/ layout shape ever changes. Hashing fetch-lists.ts forces
+          # a fresh fetch when the fetcher itself changes (e.g. new source
+          # added). The week stamp forces at-least-weekly refreshes.
+          # restore-keys lets last week's cache seed this week's fetch —
+          # ETag will revalidate, so most files come back as 304s.
+          key: vendor-v1-${{ hashFiles('apps/extension/scripts/fetch-lists.ts') }}-${{ steps.cache_key.outputs.week }}
+          restore-keys: |
+            vendor-v1-${{ hashFiles('apps/extension/scripts/fetch-lists.ts') }}-
+
+      - name: Install JS/TS dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Root `typecheck` script delegates via `pnpm -r --if-present run typecheck`,
+      # which recurses into every workspace. Same for `test` below.
       - name: Typecheck
-        run: |
-          if [ -f package.json ] && pnpm run --silent typecheck --if-present; then
-            echo "typecheck ok"
-          else
-            echo "no typecheck script yet — skipping"
-          fi
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # ETag-aware; near-zero bandwidth on a warm cache. Always-run because
+      # the validation is essentially free and we never want CI to build
+      # against an out-of-date list manifest.
+      - name: Fetch filter lists
+        run: pnpm --filter @ad-blocker/extension lists:fetch
+
+      # Full pipeline: build:rulesets (compile vendor lists → DNR chunks +
+      # per-source cosmetic bundles) then `vite build`. Catches manifest
+      # entry mismatches, ruleset chunk overflows, crxjs configuration
+      # errors — all things tests-with-fixtures don't cover.
+      - name: Build extension
+        run: pnpm --filter @ad-blocker/extension build

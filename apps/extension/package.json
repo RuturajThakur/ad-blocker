@@ -5,16 +5,25 @@
   "description": "Chrome MV3 ad blocker extension (apps/extension).",
   "type": "module",
   "scripts": {
-    "build": "echo \"TODO: wire Vite/rollup build\" && exit 0",
-    "dev": "echo \"TODO: wire Vite dev build\" && exit 0",
+    "build": "pnpm run build:rulesets && vite build",
+    "build:rulesets": "tsx scripts/build-rulesets.ts",
+    "lists:fetch": "tsx scripts/fetch-lists.ts",
+    "bench:phase-4b": "tsx scripts/bench-phase-4b.ts",
+    "dev": "pnpm run build:rulesets && vite dev",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "echo \"TODO: wire eslint\" && exit 0",
-    "test": "echo \"TODO: wire vitest\" && exit 0"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@ad-blocker/filter-compiler-js": "workspace:*"
+    "@ad-blocker/filter-compiler-js": "workspace:*",
+    "tldts": "^6.1.0"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.270"
+    "@crxjs/vite-plugin": "^2.0.0-beta.36",
+    "@types/chrome": "^0.0.270",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.19.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.0"
   }
 }

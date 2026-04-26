@@ -1,0 +1,31 @@
+! Title: Tiny fixture for lexer integration tests
+! Source: hand-crafted subset of real EasyList shapes
+[Adblock Plus 2.0]
+
+! --- network block rules ---
+||ads.example.com^
+||doubleclick.net^$third-party
+||googlesyndication.com/pagead/$script,domain=example.com|foo.com
+/banner_ads/*
+||tracker.net^$~third-party,domain=~allowed.com
+
+! --- network exceptions ---
+@@||good.example.com^
+@@||partner.com^$image,domain=example.com
+
+! --- cosmetic element-hide (universal + scoped) ---
+##.ad-banner
+##div[id^="adslot-"]
+example.com,sub.example.com##.sponsor-box
+news.site##aside.promo
+
+! --- cosmetic exceptions ---
+example.com#@#.sponsor-box
+
+! --- extended (procedural) cosmetic ---
+example.com#?#.container:has(> .ad)
+
+! --- CSS/script inject, HTML filter ---
+example.com#$#body { overflow: auto !important; }
+example.com#%#+js(set-constant, adblockDetected, false)
+example.com##^script:has-text(googletag)

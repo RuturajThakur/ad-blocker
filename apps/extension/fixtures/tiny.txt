@@ -1,0 +1,43 @@
+! Title: Tiny fixture — extension build input
+! Source: hand-crafted subset of real EasyList shapes
+!
+! This is a copy of packages/filter-compiler-rs/tests/fixtures/tiny.txt,
+! duplicated here because:
+!   - the Rust crate's copy is its test input (owned by the compiler),
+!   - this copy is the extension's build input (owned by the extension),
+!   - cross-package file references in a pnpm monorepo make the dependency
+!     graph fragile, and
+!   - it's 30 lines — the maintenance cost of the duplicate is negligible.
+!
+! When we wire real filter lists (EasyList etc.) we'll replace this file and
+! the Rust crate's fixture will continue to pin lexer/compiler behavior on
+! its smaller, controlled shape.
+[Adblock Plus 2.0]
+
+! --- network block rules ---
+||ads.example.com^
+||doubleclick.net^$third-party
+||googlesyndication.com/pagead/$script,domain=example.com|foo.com
+/banner_ads/*
+||tracker.net^$~third-party,domain=~allowed.com
+
+! --- network exceptions ---
+@@||good.example.com^
+@@||partner.com^$image,domain=example.com
+
+! --- cosmetic element-hide (universal + scoped) ---
+##.ad-banner
+##div[id^="adslot-"]
+example.com,sub.example.com##.sponsor-box
+news.site##aside.promo
+
+! --- cosmetic exceptions ---
+example.com#@#.sponsor-box
+
+! --- extended (procedural) cosmetic ---
+example.com#?#.container:has(> .ad)
+
+! --- CSS/script inject, HTML filter ---
+example.com#$#body { overflow: auto !important; }
+example.com#%#+js(set-constant, adblockDetected, false)
+example.com##^script:has-text(googletag)
