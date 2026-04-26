@@ -2,9 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Both `main` and `master` so this works regardless of the repo's
+    # default-branch convention. GitHub's modern default is `main`; older
+    # repos still use `master`. Listing both costs nothing and avoids the
+    # silent-no-trigger trap (CI never runs because no event matches).
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
+  # Manual trigger: lets us re-run the workflow from the Actions tab without
+  # pushing a new commit. Useful for re-running after a flake, or for the
+  # very-first run when a workflow file gets added to a repo whose default
+  # branch doesn't match the push trigger.
+  workflow_dispatch:
 
 # Cancel outdated runs on the same branch.
 concurrency:
