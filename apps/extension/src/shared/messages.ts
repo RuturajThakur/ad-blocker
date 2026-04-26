@@ -163,3 +163,93 @@ export const PAUSE_RULE_ID_MAX = 199_999;
  * whole frame tree once it matches the main_frame request.
  */
 export const PAUSE_RULE_PRIORITY = 5;
+
+// ---------------------------------------------------------------------------
+// Auto-refresh (slice 5.5).
+//
+// The SW periodically re-fetches each enabled source's upstream filter list,
+// re-compiles the cosmetic side via the wasm compiler, and stashes the fresh
+// `CosmeticBundle` in `chrome.storage.local`. The content script reads from
+// storage first and falls back to the bundled `assets/cosmetic-<id>.json`
+// (the build-time copy) when storage is empty.
+//
+// DNR rules (network blocks) are NOT auto-refreshed: Chrome's 5,000-rule cap
+// on dynamic + session rules is two orders of magnitude smaller than our
+// static budget (~120k rules), so the DNR side cannot be kept live in MV3
+// without major architectural changes. Cosmetic-only refresh is a deliberate
+// scope choice that matches what every other MV3 blocker has settled on.
+// ---------------------------------------------------------------------------
+
+/**
+ * Upstream URLs each filter source is fetched from. Mirrors the table in
+ * `scripts/fetch-lists.ts` — duplicated here because the SW is a browser
+ * context and can't import from Node-only build scripts. If you add a new
+ * source, update both files (and the manifest's `rule_resources[]`,
+ * `SOURCE_IDS`, `SOURCE_DEFAULTS`).
+ *
+ * URLs MUST be HTTPS — the SW's fetch path treats anything else as a
+ * configuration error and bails. We don't want a man-in-the-middle to be
+ * able to ship arbitrary cosmetic selectors to every user.
+ */
+export const SOURCE_UPSTREAM_URLS: Readonly<Record<SourceId, string>> = {
+  easylist: 'https://easylist.to/easylist/easylist.txt',
+  easyprivacy: 'https://easylist.to/easylist/easyprivacy.txt',
+  'easylist-cookie': 'https://secure.fanboy.co.nz/fanboy-cookiemonster.txt',
+  'easylist-annoyances': 'https://easylist.to/easylist/fanboy-annoyance.txt',
+};
+
+/**
+ * `chrome.storage.local` key prefix for refreshed cosmetic bundles. One
+ * entry per source: `cosmetic:easylist`, `cosmetic:easyprivacy`, etc.
+ * Stored as the full `CosmeticBundle` shape (the same JSON the build
+ * script writes to `assets/cosmetic-<id>.json`).
+ *
+ * Why a prefix and not nested under one big object: per-source keys keep
+ * each source's write atomic (storage.local doesn't have transactions, but
+ * a single `set({ 'cosmetic:easylist': { ... } })` is one write). A
+ * partial-write on one source therefore can't corrupt another's bundle.
+ */
+export const COSMETIC_STORAGE_PREFIX = 'cosmetic:';
+
+/** Build the storage key for a single source's refreshed bundle. */
+export function cosmeticStorageKey(sourceId: SourceId): string {
+  return `${COSMETIC_STORAGE_PREFIX}${sourceId}`;
+}
+
+/**
+ * `chrome.storage.local` key holding the ISO-8601 UTC timestamp of the
+ * most recent successful refresh (across all sources). A future "About"
+ * panel will surface this; the SW exposes it on `popup:get-state` for any
+ * caller that wants to render it. `null` means "never refreshed" — the
+ * extension is operating off the bundled-at-build-time assets only.
+ */
+export const COSMETIC_LAST_REFRESHED_KEY = 'cosmeticLastRefreshed';
+
+/**
+ * `chrome.storage.sync` key for the user's "auto-refresh enabled" preference.
+ * Lives in `sync` (alongside the per-source toggles) so it travels with the
+ * user across devices. Default is on (`AUTO_REFRESH_DEFAULT`).
+ */
+export const AUTO_REFRESH_KEY = 'autoRefresh';
+export const AUTO_REFRESH_DEFAULT = true;
+
+/**
+ * Name of the chrome.alarms entry that triggers a refresh. One alarm per
+ * extension installation; firing it kicks the SW into the fetch-and-compile
+ * loop. The string isn't user-facing — it's the alarm-API key.
+ */
+export const COSMETIC_REFRESH_ALARM = 'cosmetic-refresh';
+
+/**
+ * Refresh cadence in minutes. 10080 = exactly one week. Picked to match
+ * how often EasyList/EasyPrivacy actually change in practice (their commit
+ * cadence is a few times per week; one weekly pull catches the bulk of
+ * meaningful additions without hammering upstream from millions of users).
+ *
+ * The first fire is offset by `COSMETIC_REFRESH_INITIAL_DELAY_MIN` so a
+ * fresh install doesn't immediately spike network activity — the user just
+ * installed the extension; they have the bundled-at-build-time lists, and
+ * a refresh in the same minute would feel intrusive.
+ */
+export const COSMETIC_REFRESH_PERIOD_MIN = 10_080;
+export const COSMETIC_REFRESH_INITIAL_DELAY_MIN = 60;

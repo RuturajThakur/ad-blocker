@@ -8,6 +8,7 @@
     "declarativeNetRequest",
     "declarativeNetRequestFeedback",
     "storage",
+    "unlimitedStorage",
     "alarms",
     "scripting",
     "tabs"

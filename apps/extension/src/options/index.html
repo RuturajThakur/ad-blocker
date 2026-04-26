@@ -22,6 +22,15 @@
       <label><input type="checkbox" id="easylist-cookie" /> EasyList Cookie <span class="muted">— cookie banners (off by default; can break some sign-in flows)</span></label>
       <label><input type="checkbox" id="easylist-annoyances" /> EasyList Annoyances <span class="muted">— overlays, newsletter pop-ups, anti-adblock walls (off by default)</span></label>
     </section>
+    <section>
+      <h2>Updates</h2>
+      <label>
+        <input type="checkbox" id="autoRefresh" checked />
+        Auto-refresh filter lists weekly
+        <span class="muted">— fetches the latest cosmetic rules from upstream once a week. Network blocking rules are bundled with the extension and only change when you install an update.</span>
+      </label>
+      <p id="lastRefreshed" class="muted"></p>
+    </section>
     <script type="module" src="./index.ts"></script>
   </body>
 </html>

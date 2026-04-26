@@ -20,6 +20,13 @@
 //     session rule. Session rules survive SW restarts but not browser
 //     restarts; the storage list is the source of truth and we rehydrate
 //     session rules from it on startup.
+//   - Run the cosmetic-refresh alarm (slice 5.5). chrome.alarms fires
+//     ~weekly; the SW fetches each enabled list from upstream, compiles
+//     it via the wasm pipeline, and stashes the fresh `CosmeticBundle` in
+//     chrome.storage.local. The content script reads from storage first,
+//     falling back to the bundled `assets/cosmetic-<id>.json` files.
+//     DNR rules are NOT auto-refreshed — Chrome's 5,000-rule cap on
+//     dynamic rules makes that architecturally impossible in MV3.
 //   - Respond to `popup:get-state` and the pause-toggle messages with
 //     enough info to populate the popup.
 //
@@ -29,7 +36,9 @@
 
 import { etldPlusOne } from '../shared/etld.js';
 import {
+  AUTO_REFRESH_KEY,
   CHUNK_IDS,
+  COSMETIC_REFRESH_ALARM,
   PAUSED_HOSTS_KEY,
   PAUSE_RULE_ID_BASE,
   PAUSE_RULE_ID_MAX,
@@ -46,6 +55,7 @@ import {
   updateBadgeForActiveTab,
   updateBadgeForTab,
 } from './badge.js';
+import { runRefresh, setupRefreshAlarm } from './refresh.js';
 
 /**
  * Read the user's per-source enable prefs from storage. Falls back to the
@@ -276,6 +286,10 @@ chrome.runtime.onInstalled.addListener((details) => {
   // populated for the currently-focused tab here so the user sees a badge
   // immediately after install, not only after their next tab switch.
   void initBadgeStyling().then(() => updateBadgeForActiveTab());
+  // Schedule the cosmetic-refresh alarm. setupRefreshAlarm is gated on
+  // the user's autoRefresh preference and is idempotent (won't reset an
+  // already-running schedule), so it's safe on every onInstalled.
+  void setupRefreshAlarm();
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -288,6 +302,22 @@ chrome.runtime.onStartup.addListener(() => {
   // Re-apply badge styling — Chrome persists the bg/text color within a
   // session but a browser restart resets them, so we set them again.
   void initBadgeStyling().then(() => updateBadgeForActiveTab());
+  // Alarms persist across browser restarts (chrome.alarms is durable),
+  // but we still call setupRefreshAlarm here defensively in case the
+  // alarm was somehow cleared between sessions or the user toggled
+  // autoRefresh while the browser was closed.
+  void setupRefreshAlarm();
+});
+
+// Cosmetic-refresh alarm fires on schedule (~weekly) and runs the
+// fetch/compile/store loop. We re-check the autoRefresh pref inside
+// setupRefreshAlarm rather than gating here; that way a quickly-toggled
+// preference takes effect on the *next* schedule reconcile rather than
+// silently mid-run.
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== COSMETIC_REFRESH_ALARM) return;
+  console.debug('[sw] cosmetic-refresh alarm fired');
+  void runRefresh();
 });
 
 // Badge update triggers. Two events are enough to keep the count fresh
@@ -314,13 +344,22 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 // React to options-page changes immediately without waiting for the next
 // SW restart. We listen on both areas:
-//   - `sync`: where options/index.ts writes per-source enable prefs.
+//   - `sync`: where options/index.ts writes per-source enable prefs and
+//     the autoRefresh toggle. Source-pref changes drive ruleset reconcile;
+//     autoRefresh changes drive the alarm install / clear.
 //   - `local`: where pause toggles persist `pausedHosts`. Watching this
 //     keeps the SW honest even if a future caller writes to the key
 //     without going through `togglePauseForHost` (e.g. an importer).
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync') {
+    // Per-source enable prefs and the autoRefresh toggle live in `sync`.
+    // The reconcileRulesets() pass is unconditional (cheap, only delta-
+    // applies) but the alarm setup needs to react specifically to
+    // autoRefresh flipping — clearing or re-installing the schedule.
     void reconcileRulesets();
+    if (AUTO_REFRESH_KEY in changes) {
+      void setupRefreshAlarm();
+    }
   } else if (area === 'local' && PAUSED_HOSTS_KEY in changes) {
     void reconcilePauseRules();
   }

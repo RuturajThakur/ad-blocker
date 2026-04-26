@@ -1,11 +1,13 @@
 // Content script — injected at document_start into every frame.
 //
 // Goal: apply cosmetic (element-hide) rules before the page paints. We do
-// this by fetching the per-source cosmetic bundles (web-accessible JSONs
-// produced at build time by scripts/build-rulesets.ts), merging the
-// bundles for sources the user has enabled, resolving the selectors for
-// this frame's hostname, and injecting a single <style> tag that hides
-// them.
+// this by reading the per-source cosmetic bundles — first from
+// chrome.storage.local (refreshed weekly by the SW's auto-refresh path,
+// slice 5.5), falling back to the bundled `assets/cosmetic-<id>.json`
+// files (the build-time copy) when storage has no entry yet. Then we
+// merge the bundles for sources the user has enabled, resolve the
+// selectors for this frame's hostname, and inject a single <style> tag
+// that hides them.
 //
 // Why per-source bundles (slice 5.2)? Each source (EasyList, EasyPrivacy,
 // EasyList-Cookie, EasyList-Annoyances) is independently toggleable in
@@ -40,6 +42,7 @@ import {
   PAUSED_HOSTS_KEY,
   SOURCE_DEFAULTS,
   SOURCE_IDS,
+  cosmeticStorageKey,
   type SourceId,
 } from '../shared/messages.js';
 import {
@@ -47,10 +50,32 @@ import {
   type CosmeticBundle,
 } from '@ad-blocker/filter-compiler-js/web';
 
-/** Build the URL for a single source's bundle. The build script writes
- *  one of these per source under `assets/cosmetic-{id}.json`. */
+/** Build the URL for a single source's *bundled* cosmetic JSON. The build
+ *  script writes one of these per source under `assets/cosmetic-{id}.json`.
+ *  This is the fallback path — we use it only when chrome.storage.local
+ *  has no refreshed entry (fresh install before the first auto-refresh
+ *  fire, or auto-refresh disabled). */
 function bundleUrl(sourceId: SourceId): string {
   return chrome.runtime.getURL(`assets/cosmetic-${sourceId}.json`);
+}
+
+/**
+ * Shape-validate a value pulled out of chrome.storage.local before treating
+ * it as a CosmeticBundle. Storage values are untyped from the runtime's
+ * point of view; a corrupted or partial write must not flow into the
+ * matcher unchecked. The structural check is cheap, and the wire types
+ * (owned by the Rust side) aren't going to drift mid-session.
+ */
+function isCosmeticBundle(v: unknown): v is CosmeticBundle {
+  if (!v || typeof v !== 'object') return false;
+  const obj = v as Record<string, unknown>;
+  return (
+    Array.isArray(obj.generic_hide) &&
+    obj.domain_hide !== null &&
+    typeof obj.domain_hide === 'object' &&
+    obj.domain_exceptions !== null &&
+    typeof obj.domain_exceptions === 'object'
+  );
 }
 
 /**
@@ -95,14 +120,39 @@ async function readEnabledSources(): Promise<SourceId[]> {
 }
 
 /**
- * Fetch one source's cosmetic bundle. Returns `null` if the asset is
- * missing or malformed — caller filters out nulls before merging. We log
- * at warn-level on failure because a missing per-source asset is a
- * build-time problem (the build script must have failed for that source),
- * not a runtime one — the network-side DNR rules for that source are
- * independent and remain active.
+ * Resolve one source's cosmetic bundle, checking the auto-refresh storage
+ * first and falling back to the bundled-at-build-time JSON. Returns `null`
+ * only when both paths fail — caller filters out nulls before merging.
+ *
+ * Order rationale:
+ *   1. `chrome.storage.local[cosmetic:<id>]` — the refreshed copy, written
+ *      by the SW's auto-refresh path (slice 5.5). When present, it's
+ *      strictly fresher than the bundled asset.
+ *   2. `assets/cosmetic-<id>.json` — the build-time copy. Always present
+ *      (the manifest's `web_accessible_resources` covers `assets/*`), so
+ *      this is the dependable fallback for fresh installs and for users
+ *      who've turned auto-refresh off.
+ *
+ * We log at warn-level on the *fallback*-fetch failure because a missing
+ * bundled asset is a build-time problem (the build script must have
+ * failed for that source), not a runtime one — the network-side DNR rules
+ * for that source are independent and remain active either way.
  */
-async function fetchBundle(sourceId: SourceId): Promise<CosmeticBundle | null> {
+async function loadBundle(sourceId: SourceId): Promise<CosmeticBundle | null> {
+  // Try storage first. Failures here are non-fatal — fall through to the
+  // bundled asset rather than letting a flaky storage read drop cosmetic
+  // suppression for the page.
+  try {
+    const key = cosmeticStorageKey(sourceId);
+    const stored = await chrome.storage.local.get([key]);
+    const value = stored[key];
+    if (isCosmeticBundle(value)) return value;
+  } catch (err) {
+    console.debug(`[cs] storage read failed for ${sourceId}; falling back`, err);
+  }
+
+  // Bundled-asset fallback. This is the same fetch the pre-5.5 content
+  // script always did.
   try {
     const res = await fetch(bundleUrl(sourceId));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -139,7 +189,7 @@ async function fetchBundle(sourceId: SourceId): Promise<CosmeticBundle | null> {
   // Fetch enabled-source bundles in parallel — we want the page to start
   // painting as quickly as possible, and serial fetches would compound
   // each list's network round-trip into the critical path.
-  const fetched = await Promise.all(enabled.map(fetchBundle));
+  const fetched = await Promise.all(enabled.map(loadBundle));
   const bundles = fetched.filter((b): b is CosmeticBundle => b !== null);
   if (bundles.length === 0) {
     // All bundle fetches failed — extremely unlikely in practice

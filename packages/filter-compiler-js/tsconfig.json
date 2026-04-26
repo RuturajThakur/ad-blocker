@@ -5,5 +5,12 @@
     "rootDir": ".",
     "declaration": true
   },
-  "include": ["node.ts", "web.ts", "src/**/*.ts", "*.test.ts"]
+  "include": [
+    "node.ts",
+    "web.ts",
+    "compile-browser.ts",
+    "asset-imports.d.ts",
+    "src/**/*.ts",
+    "*.test.ts"
+  ]
 }
