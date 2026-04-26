@@ -193,9 +193,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here — pnpm/action-setup@v4 reads it from
+      # package.json's `packageManager` field (currently `pnpm@9.12.0`).
+      # Declaring the version in both places makes the action error out:
+      # "Multiple versions of pnpm specified". package.json is the
+      # canonical source corepack and pnpm 9 themselves consult, so we
+      # keep it there and let the action infer.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
